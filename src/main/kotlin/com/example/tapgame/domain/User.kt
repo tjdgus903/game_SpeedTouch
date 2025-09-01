@@ -19,7 +19,7 @@ class User (
     @Column(nullable = false, length = 10)
     var provider: String = "guest",  // geust/google/apple
 
-    @Column(name = "create_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now(),
 ){
     companion object{

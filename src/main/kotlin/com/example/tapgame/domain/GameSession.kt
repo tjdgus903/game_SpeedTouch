@@ -26,7 +26,7 @@ class GameSession(
     @Column(name = "device_info")
     var deviceInfo: String? = null,
 
-    @Column(name = "create_at", nullable = false)
+    @Column(name = "created_at", nullable = false)
     var createdAt: Instant = Instant.now()
 ) {
     fun end(endedAt:Instant, score: Int){
