@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>Pop the Dot</title>
     <style>
-        html,body{margin:0;height:100%;background:#111;color:#fff;font-family:sans-serif}
+        html,body{margin:0;height:100%;background:#fff;color:#111;font-family:sans-serif}
         .hud{position:fixed;top:8px;left:8px;display:flex;gap:12px;z-index:10;align-items:center}
         #canvas{display:block;width:100vw;height:100vh;touch-action:manipulation}
         .btn{background:#333;border:1px solid #555;padding:8px 12px;border-radius:8px;cursor:pointer}
@@ -23,7 +23,10 @@
 <script>
     const API = '/api/v1';
     const DURATION = 30_000;
-    const SPAWN_MAX = 700, SPAWN_MIN = 300;
+    // MAX → MIN 난이도 조절을 위해 점점 빨라짐
+    // SPAWN_MAX : 가장 느릴 때의 간격(현재 1.5초)
+    // SPAWN_MIN : 가장 빠를 때의 간격(현재 0.9초)
+    const SPAWN_MAX = 1500, SPAWN_MIN = 900;
 
     let userId = localStorage.getItem('userId');
     let sessionId = null;
@@ -46,10 +49,13 @@
       }
     }
 
+    const CHARACTERS = ['🐰','🐶','🐱']; // 토끼, 강아지, 고양이
+
     function spawn(){
       const w = innerWidth, h = innerHeight;
-      const r = rnd(24, 44);
-      dot = { x: rnd(r, w-r), y: rnd(r, h-r), r };
+      const r = rnd(28, 52); // 살짝 키워서 보기 좋게
+      const emoji = CHARACTERS[Math.floor(Math.random()*CHARACTERS.length)];
+      dot = { x: rnd(r, w-r), y: rnd(r, h-r), r, emoji };
     }
 
     function hitTest(x,y){
@@ -90,12 +96,17 @@
         spawn(); lastSpawn = ts;
       }
 
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      if(dot){
-        ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
-        ctx.beginPath(); ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI*2);
-        ctx.fillStyle = '#0bf'; ctx.fill(); ctx.restore();
-      }
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(dot){
+      ctx.save();
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+      // 이모지 폰트 크기는 반지름에 비례(대략 r*2배 조금 더)
+      ctx.font = `${Math.round(dot.r*2.2)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(dot.emoji, dot.x, dot.y);
+      ctx.restore();
+    }
 
       if(elapsed >= DURATION){ running=false; endGame(); return; }
       requestAnimationFrame(loop);
