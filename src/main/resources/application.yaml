@@ -12,6 +12,10 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
+logging:
+  level:
+    org.flywaydb: DEBUG
+    org.springframework.jdbc.core: DEBUG
 ---
 spring:
   config:

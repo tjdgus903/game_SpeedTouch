@@ -27,7 +27,7 @@ class GameSession(
     var deviceInfo: String? = null,
 
     @Column(name = "create_at", nullable = false)
-    var createAt: Instant = Instant.now()
+    var createdAt: Instant = Instant.now()
 ) {
     fun end(endedAt:Instant, score: Int){
         this.endAt = endedAt
@@ -38,7 +38,7 @@ class GameSession(
         fun start(user: User, sessionId: UUID, startedAt: Instant, deviceInfo: String?) =
             GameSession(
                 id = sessionId, user = user, startAt = startedAt,
-                deviceInfo = deviceInfo, createAt = Instant.now()
+                deviceInfo = deviceInfo, createdAt = Instant.now()
             )
     }
 }
