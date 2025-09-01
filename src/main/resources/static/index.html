@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Pop the Dot</title>
+    <style>
+        html,body{margin:0;height:100%;background:#111;color:#fff;font-family:sans-serif}
+        .hud{position:fixed;top:8px;left:8px;display:flex;gap:12px;z-index:10;align-items:center}
+        #canvas{display:block;width:100vw;height:100vh;touch-action:manipulation}
+        .btn{background:#333;border:1px solid #555;padding:8px 12px;border-radius:8px;cursor:pointer}
+    </style>
+</head>
+<body>
+<div class="hud">
+    <span>⏱ <span id="time">30.0</span>s</span>
+    <span>⭐ <span id="score">0</span></span>
+    <button id="start" class="btn">Start</button>
+    <button id="board" class="btn">Leaderboard</button>
+</div>
+<canvas id="canvas"></canvas>
+
+<script>
+    const API = '/api/v1';
+    const DURATION = 30_000;
+    const SPAWN_MAX = 700, SPAWN_MIN = 300;
+
+    let userId = localStorage.getItem('userId');
+    let sessionId = null;
+    let running = false;
+    let startMs = 0, nowMs = 0, lastSpawn = 0;
+    let score = 0, combo = 0;
+    let dot = null;
+
+    const rnd=(a,b)=>Math.random()*(b-a)+a;
+    const uuid=()=>crypto.randomUUID();
+
+    async function ensureGuest(){
+      if(!userId){
+        const nickname = 'Player'+Math.floor(Math.random()*1000);
+        const res = await fetch(API+'/auth/guest',{method:'POST',headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({nickname})});
+        const js = await res.json();
+        userId = js.data.userId;
+        localStorage.setItem('userId', userId);
+      }
+    }
+
+    function spawn(){
+      const w = innerWidth, h = innerHeight;
+      const r = rnd(24, 44);
+      dot = { x: rnd(r, w-r), y: rnd(r, h-r), r };
+    }
+
+    function hitTest(x,y){
+      if(!dot) return false;
+      const dx = x-dot.x, dy=y-dot.y;
+      return dx*dx+dy*dy <= dot.r*dot.r;
+    }
+
+    function currentSpawnInterval(){
+      const t = nowMs - startMs;
+      const k = Math.min(1, Math.max(0, t / DURATION));
+      return SPAWN_MAX + (SPAWN_MIN - SPAWN_MAX)*k;
+    }
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const timeEl = document.getElementById('time');
+    const scoreEl = document.getElementById('score');
+    const startBtn = document.getElementById('start');
+    const boardBtn = document.getElementById('board');
+
+    function resize(){
+      canvas.width = Math.floor(innerWidth * devicePixelRatio);
+      canvas.height = Math.floor(innerHeight * devicePixelRatio);
+    }
+    addEventListener('resize', resize, {passive:true}); resize();
+
+    function loop(ts){
+      if(!running) return;
+      if(!startMs) startMs = ts, lastSpawn = ts;
+
+      nowMs = ts;
+      const elapsed = ts - startMs;
+      const remain = Math.max(0, (DURATION - elapsed)/1000);
+      timeEl.textContent = remain.toFixed(1);
+
+      if (elapsed - (lastSpawn - startMs) >= currentSpawnInterval()) {
+        spawn(); lastSpawn = ts;
+      }
+
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(dot){
+        ctx.save(); ctx.scale(devicePixelRatio, devicePixelRatio);
+        ctx.beginPath(); ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI*2);
+        ctx.fillStyle = '#0bf'; ctx.fill(); ctx.restore();
+      }
+
+      if(elapsed >= DURATION){ running=false; endGame(); return; }
+      requestAnimationFrame(loop);
+    }
+
+    async function startGame(){
+      await ensureGuest();
+      sessionId = uuid();
+
+      fetch(API+'/sessions',{method:'POST',headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ userId, sessionId, startedAt:new Date().toISOString(), deviceInfo:navigator.userAgent })
+      }).catch(()=>{});
+
+      score=0; combo=0; scoreEl.textContent='0';
+      running=true; startMs=0; lastSpawn=0; dot=null;
+      requestAnimationFrame(loop);
+    }
+
+    async function endGame(){
+      try{
+        await fetch(`${API}/sessions/${sessionId}/end`, {method:'PATCH', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ endedAt:new Date().toISOString(), finalScore:score })
+        });
+        alert(`끝! 점수: ${score}`);
+      }catch(e){
+        alert(`끝! 점수: ${score} (업로드 실패)`);
+      }
+    }
+
+    canvas.addEventListener('pointerdown', e=>{
+      if(!running) return;
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left, y = e.clientY - rect.top;
+      if(hitTest(x,y)){
+        combo = Math.min(combo+1, 5);
+        score += 1 + combo;
+        scoreEl.textContent = String(score);
+        dot = null;
+        if(navigator.vibrate) navigator.vibrate(10);
+      } else { combo = 0; }
+    },{passive:true});
+
+    startBtn.onclick = startGame;
+    boardBtn.onclick = async ()=>{
+      const r = await fetch(API+'/leaderboards'); const js = await r.json();
+      console.log('TOP10', js.data.items.slice(0,10)); alert('콘솔에서 TOP10 확인!');
+    };
+</script>
+</body>
+</html>
