@@ -4,7 +4,9 @@
 > 화면에 나타나는 귀여운 캐릭터(토끼 🐰, 강아지 🐶, 고양이 🐱, …)를 제한 시간 안에 최대한 많이 터치하세요!  
 > 점수가 올라갈수록 **콤보 보너스**와 **점점 빨라지는 스폰 속도**가 기다리고 있습니다.  
 
-<img width="371" height="765" alt="image" src="https://github.com/user-attachments/assets/fc3fe9d7-0479-4a6b-9fdf-cabcad511a4a" />
+
+<img width="756" height="767" alt="image" src="https://github.com/user-attachments/assets/36742cf2-65ec-482a-aa34-df5ef05b9634" />
+
 
 
 ---
@@ -19,3 +21,4 @@
 - **배경 테마**: Meadow / Night / Ocean (HUD 버튼으로 즉시 변경 가능)  
 - **배경 음악(BGM)**: 기본 mp3 반복 재생, 🔊/🔇 버튼으로 On/Off 가능  
 - **반응형 UI**: PC와 모바일 브라우저 모두 지원  
+
