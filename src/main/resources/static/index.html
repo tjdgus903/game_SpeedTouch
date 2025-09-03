@@ -5,18 +5,56 @@
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <title>Pop the Dot</title>
     <style>
-        html,body{margin:0;height:100%;background:#fff;color:#111;font-family:sans-serif}
-        .hud{position:fixed;top:8px;left:8px;display:flex;gap:12px;z-index:10;align-items:center}
+        html,body{margin:0;height:100%;color:#111;font-family:sans-serif}
+
+        /* ▼▼ 배경 테마 3종 (게임 느낌 나는 그라디언트) ▼▼ */
+        body.theme-meadow{
+          /* 초원·맑은 하늘 */
+          background:
+            radial-gradient(1200px 600px at 80% -10%, rgba(255,255,255,.5), rgba(255,255,255,0)),
+            linear-gradient(180deg, #c7ffd1 0%, #b3f1ff 60%, #eafaff 100%);
+        }
+        body.theme-night{
+          /* 밤하늘 */
+          background:
+            radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.7), rgba(255,255,255,0) 60%) repeat,
+            radial-gradient(2px 2px at 70% 60%, rgba(255,255,255,.6), rgba(255,255,255,0) 60%) repeat,
+            linear-gradient(180deg,#0b1020 0%, #0a1530 60%, #000814 100%);
+          background-size: 200px 200px, 260px 260px, auto;
+          color:#f4f6ff;
+        }
+        body.theme-ocean{
+          /* 바다 */
+          background:
+            radial-gradient(1200px 600px at 20% -10%, rgba(255,255,255,.35), rgba(255,255,255,0)),
+            linear-gradient(180deg,#9be7ff 0%,#5bc0ff 45%,#0077b6 100%);
+        }
+
+        .hud{
+          position:fixed;top:8px;left:8px;display:flex;gap:12px;z-index:10;align-items:center;
+          padding:4px 6px;border-radius:10px;
+          /* 다양한 배경에서 잘 보이도록 살짝 반투명 */
+          backdrop-filter: blur(4px);
+          background: rgba(255,255,255,.35);
+        }
+        .hud span{font-weight:600}
         #canvas{display:block;width:100vw;height:100vh;touch-action:manipulation}
-        .btn{background:#333;border:1px solid #555;padding:8px 12px;border-radius:8px;cursor:pointer}
+
+        .btn{
+          background:#333;border:1px solid #555;padding:8px 12px;border-radius:8px;cursor:pointer;
+          color:#fff
+        }
+        .btn:active{transform:translateY(1px)}
     </style>
 </head>
-<body>
+<body class="theme-meadow"><!-- 기본 테마: Meadow -->
 <div class="hud">
     <span>⏱ <span id="time">30.0</span>s</span>
     <span>⭐ <span id="score">0</span></span>
     <button id="start" class="btn">Start</button>
     <button id="board" class="btn">Leaderboard</button>
+    <!-- ▼▼ 요구사항 #1: 테마 변경 버튼 추가 ▼▼ -->
+    <button id="theme" class="btn" title="배경 테마 바꾸기">Theme: Meadow</button>
 </div>
 <canvas id="canvas"></canvas>
 
@@ -49,7 +87,9 @@
       }
     }
 
-    const CHARACTERS = ['🐰','🐶','🐱']; // 토끼, 강아지, 고양이
+    /* ▼▼ 요구사항 #2: 캐릭터 7종 추가 (총 10종) ▼▼
+       대비 잘 되는 귀여운 동물 이모지 */
+    const CHARACTERS = ['🐰','🐶','🐱','🐻','🦊','🐼','🐵','🐸','🐯','🐹'];
 
     function spawn(){
       const w = innerWidth, h = innerHeight;
@@ -76,6 +116,7 @@
     const scoreEl = document.getElementById('score');
     const startBtn = document.getElementById('start');
     const boardBtn = document.getElementById('board');
+    const themeBtn = document.getElementById('theme'); // ▼▼ 추가
 
     function resize(){
       canvas.width = Math.floor(innerWidth * devicePixelRatio);
@@ -96,17 +137,21 @@
         spawn(); lastSpawn = ts;
       }
 
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    if(dot){
-      ctx.save();
-      ctx.scale(devicePixelRatio, devicePixelRatio);
-      // 이모지 폰트 크기는 반지름에 비례(대략 r*2배 조금 더)
-      ctx.font = `${Math.round(dot.r*2.2)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(dot.emoji, dot.x, dot.y);
-      ctx.restore();
-    }
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      if(dot){
+        ctx.save();
+        ctx.scale(devicePixelRatio, devicePixelRatio);
+        ctx.font = `${Math.round(dot.r*2.2)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // 다양한 배경에서 가독성 ↑ (얇은 외곽선)
+        ctx.lineWidth = Math.max(1, Math.round(dot.r*0.08));
+        ctx.strokeText(dot.emoji, dot.x, dot.y);
+
+        ctx.fillText(dot.emoji, dot.x, dot.y);
+        ctx.restore();
+      }
 
       if(elapsed >= DURATION){ running=false; endGame(); return; }
       requestAnimationFrame(loop);
@@ -154,6 +199,27 @@
       const r = await fetch(API+'/leaderboards'); const js = await r.json();
       console.log('TOP10', js.data.items.slice(0,10)); alert('콘솔에서 TOP10 확인!');
     };
+
+    /* ▼▼ 테마 로직: 버튼으로 순환, 로컬스토리지에 저장 ▼▼ */
+    const THEMES = [
+      {name:'Meadow', class:'theme-meadow'},
+      {name:'Night',  class:'theme-night'},
+      {name:'Ocean',  class:'theme-ocean'},
+    ];
+    let themeIndex = parseInt(localStorage.getItem('themeIndex') ?? '0', 10);
+    function applyTheme(idx){
+      document.body.classList.remove(...THEMES.map(t=>t.class));
+      document.body.classList.add(THEMES[idx].class);
+      themeBtn.textContent = `Theme: ${THEMES[idx].name}`;
+      localStorage.setItem('themeIndex', String(idx));
+    }
+    themeBtn.onclick = ()=>{
+      themeIndex = (themeIndex + 1) % THEMES.length;
+      applyTheme(themeIndex);
+    };
+    // 초기 적용
+    if(Number.isNaN(themeIndex) || themeIndex<0 || themeIndex>=THEMES.length) themeIndex=0;
+    applyTheme(themeIndex);
 </script>
 </body>
 </html>
