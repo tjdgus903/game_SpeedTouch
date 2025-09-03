@@ -7,15 +7,13 @@
     <style>
         html,body{margin:0;height:100%;color:#111;font-family:sans-serif}
 
-        /* ▼▼ 배경 테마 3종 (게임 느낌 나는 그라디언트) ▼▼ */
+        /* ▼ 배경 테마 3종 */
         body.theme-meadow{
-          /* 초원·맑은 하늘 */
           background:
             radial-gradient(1200px 600px at 80% -10%, rgba(255,255,255,.5), rgba(255,255,255,0)),
             linear-gradient(180deg, #c7ffd1 0%, #b3f1ff 60%, #eafaff 100%);
         }
         body.theme-night{
-          /* 밤하늘 */
           background:
             radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.7), rgba(255,255,255,0) 60%) repeat,
             radial-gradient(2px 2px at 70% 60%, rgba(255,255,255,.6), rgba(255,255,255,0) 60%) repeat,
@@ -24,46 +22,56 @@
           color:#f4f6ff;
         }
         body.theme-ocean{
-          /* 바다 */
           background:
             radial-gradient(1200px 600px at 20% -10%, rgba(255,255,255,.35), rgba(255,255,255,0)),
             linear-gradient(180deg,#9be7ff 0%,#5bc0ff 45%,#0077b6 100%);
         }
 
+        /* ▼ HUD: 작고 유연하게 */
         .hud{
-          position:fixed;top:8px;left:8px;display:flex;gap:12px;z-index:10;align-items:center;
-          padding:4px 6px;border-radius:10px;
-          /* 다양한 배경에서 잘 보이도록 살짝 반투명 */
-          backdrop-filter: blur(4px);
+          position:fixed;top:8px;left:8px;right:8px;
+          display:flex;flex-wrap:wrap;gap:6px;z-index:10;align-items:center;
+          padding:4px 6px;border-radius:10px;backdrop-filter: blur(4px);
           background: rgba(255,255,255,.35);
+          font-size:14px;line-height:1;
+          max-width:calc(100vw - 16px);
         }
-        .hud span{font-weight:600}
+        .hud > *{flex:0 0 auto}
+        .hud .sp{width:1px;height:18px;background:rgba(0,0,0,.2);margin:0 2px}
+
         #canvas{display:block;width:100vw;height:100vh;touch-action:manipulation}
 
         .btn{
-          background:#333;border:1px solid #555;padding:8px 12px;border-radius:8px;cursor:pointer;
-          color:#fff
+          background:#333;border:1px solid #555;padding:6px 8px;border-radius:8px;cursor:pointer;
+          color:#fff;font-size:14px
         }
+        .btn.icon{padding:6px 8px;min-width:36px;text-align:center}
         .btn:active{transform:translateY(1px)}
     </style>
 </head>
-<body class="theme-meadow"><!-- 기본 테마: Meadow -->
+<body class="theme-meadow">
 <div class="hud">
     <span>⏱ <span id="time">30.0</span>s</span>
     <span>⭐ <span id="score">0</span></span>
+    <div class="sp"></div>
     <button id="start" class="btn">Start</button>
-    <button id="board" class="btn">Leaderboard</button>
-    <!-- ▼▼ 요구사항 #1: 테마 변경 버튼 추가 ▼▼ -->
-    <button id="theme" class="btn" title="배경 테마 바꾸기">Theme: Meadow</button>
+    <!-- Board 버튼 제거 -->
+    <button id="theme" class="btn" title="배경 테마 바꾸기">Meadow</button>
+    <!-- 작은 BGM 토글 버튼 -->
+    <button id="bgm-toggle" class="btn icon" title="배경음 On/Off">🔊</button>
 </div>
+
 <canvas id="canvas"></canvas>
 
+<!-- BGM 1곡 무한 반복 -->
+<audio id="bgm" src="/assets/bgm1.mp3" preload="auto" loop></audio>
+
 <script>
+    /* =========================
+       기본 상수/상태
+    ========================= */
     const API = '/api/v1';
     const DURATION = 30_000;
-    // MAX → MIN 난이도 조절을 위해 점점 빨라짐
-    // SPAWN_MAX : 가장 느릴 때의 간격(현재 1.5초)
-    // SPAWN_MIN : 가장 빠를 때의 간격(현재 0.9초)
     const SPAWN_MAX = 1500, SPAWN_MIN = 900;
 
     let userId = localStorage.getItem('userId');
@@ -87,13 +95,14 @@
       }
     }
 
-    /* ▼▼ 요구사항 #2: 캐릭터 7종 추가 (총 10종) ▼▼
-       대비 잘 되는 귀여운 동물 이모지 */
+    /* =========================
+       캐릭터 (총 10종)
+    ========================= */
     const CHARACTERS = ['🐰','🐶','🐱','🐻','🦊','🐼','🐵','🐸','🐯','🐹'];
 
     function spawn(){
       const w = innerWidth, h = innerHeight;
-      const r = rnd(28, 52); // 살짝 키워서 보기 좋게
+      const r = rnd(28, 52);
       const emoji = CHARACTERS[Math.floor(Math.random()*CHARACTERS.length)];
       dot = { x: rnd(r, w-r), y: rnd(r, h-r), r, emoji };
     }
@@ -110,13 +119,15 @@
       return SPAWN_MAX + (SPAWN_MIN - SPAWN_MAX)*k;
     }
 
+    /* =========================
+       캔버스 & 루프
+    ========================= */
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const timeEl = document.getElementById('time');
     const scoreEl = document.getElementById('score');
     const startBtn = document.getElementById('start');
-    const boardBtn = document.getElementById('board');
-    const themeBtn = document.getElementById('theme'); // ▼▼ 추가
+    const themeBtn = document.getElementById('theme');
 
     function resize(){
       canvas.width = Math.floor(innerWidth * devicePixelRatio);
@@ -144,11 +155,8 @@
         ctx.font = `${Math.round(dot.r*2.2)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-
-        // 다양한 배경에서 가독성 ↑ (얇은 외곽선)
-        ctx.lineWidth = Math.max(1, Math.round(dot.r*0.08));
+        ctx.lineWidth = Math.max(1, Math.round(dot.r*0.08)); // 가독성↑
         ctx.strokeText(dot.emoji, dot.x, dot.y);
-
         ctx.fillText(dot.emoji, dot.x, dot.y);
         ctx.restore();
       }
@@ -167,6 +175,10 @@
 
       score=0; combo=0; scoreEl.textContent='0';
       running=true; startMs=0; lastSpawn=0; dot=null;
+
+      // 사용자 제스처 내 재생(자동재생 정책 충족)
+      await playBGM();
+
       requestAnimationFrame(loop);
     }
 
@@ -194,13 +206,12 @@
       } else { combo = 0; }
     },{passive:true});
 
+    // Start는 한 곳에서만 바인딩 (이벤트 중복 방지)
     startBtn.onclick = startGame;
-    boardBtn.onclick = async ()=>{
-      const r = await fetch(API+'/leaderboards'); const js = await r.json();
-      console.log('TOP10', js.data.items.slice(0,10)); alert('콘솔에서 TOP10 확인!');
-    };
 
-    /* ▼▼ 테마 로직: 버튼으로 순환, 로컬스토리지에 저장 ▼▼ */
+    /* =========================
+       테마 로직 (라벨 최소화)
+    ========================= */
     const THEMES = [
       {name:'Meadow', class:'theme-meadow'},
       {name:'Night',  class:'theme-night'},
@@ -210,16 +221,49 @@
     function applyTheme(idx){
       document.body.classList.remove(...THEMES.map(t=>t.class));
       document.body.classList.add(THEMES[idx].class);
-      themeBtn.textContent = `Theme: ${THEMES[idx].name}`;
+      themeBtn.textContent = THEMES[idx].name;
       localStorage.setItem('themeIndex', String(idx));
     }
     themeBtn.onclick = ()=>{
       themeIndex = (themeIndex + 1) % THEMES.length;
       applyTheme(themeIndex);
     };
-    // 초기 적용
     if(Number.isNaN(themeIndex) || themeIndex<0 || themeIndex>=THEMES.length) themeIndex=0;
     applyTheme(themeIndex);
+
+    /* =========================
+       BGM: 1곡 무한 반복
+    ========================= */
+    const bgmEl = document.getElementById('bgm');
+    const bgmToggleBtn = document.getElementById('bgm-toggle');
+    let bgmEnabled = (localStorage.getItem('bgmEnabled') ?? '1') === '1';
+
+    bgmEl.volume = 0.6;  // 필요 시 조절
+
+    function updateBgmIcon(){
+      bgmToggleBtn.textContent = bgmEnabled ? '🔊' : '🔇';
+    }
+    async function playBGM(){
+      if(!bgmEnabled) return;
+      try { await bgmEl.play(); } catch(e) { /* 클릭 한 번 더 필요할 수 있음 */ }
+      updateBgmIcon();
+    }
+    function stopBGM(){
+      bgmEl.pause();
+      updateBgmIcon();
+    }
+    bgmToggleBtn.onclick = async ()=>{
+      bgmEnabled = !bgmEnabled;
+      localStorage.setItem('bgmEnabled', bgmEnabled ? '1' : '0');
+      if(bgmEnabled) await playBGM(); else stopBGM();
+    };
+    updateBgmIcon();
+
+    // 탭 전환 시 일시정지/복귀(선택)
+    document.addEventListener('visibilitychange', ()=>{
+      if(document.hidden) bgmEl.pause();
+      else if(running && bgmEnabled) playBGM();
+    });
 </script>
 </body>
 </html>
